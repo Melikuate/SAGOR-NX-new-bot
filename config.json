@@ -1,0 +1,185 @@
+{
+  "facebookAccount": {
+    "email": "",
+    "password": "",
+    "2FASecret": "",
+    "i_user": "",
+    "proxy": null,
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+    "intervalGetNewCookie": 1440
+  },
+  "antiInbox": false,
+  "language": "en",
+  "nickNameBot": "❚█══🆂🅰🅶🅾🆁══█❚",
+  "prefix": ".",
+  "adminOnly": {
+    "enable": false,
+    "ignoreCommand": []
+  },
+  "adminBot": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "premiumUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "devUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "vipUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "modUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "supportUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "managerUsers": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "rootOwner": [
+    "61581197276223",
+    "100003180900133"
+  ],
+  "reactBy": {
+    "delete": [
+      "😠",
+      "😡",
+      "",
+      ""
+    ],
+    "kick": [
+      "🦵",
+      "🖕",
+      "🦿",
+      "🦶"
+    ],
+    "mute": [
+      "🔇"
+    ],
+    "unmute": [
+      "🔊"
+    ],
+    "warn": [
+      "⚠️"
+    ],
+    "ban": [
+      "🚫"
+    ],
+    "unban": [
+      "✅"
+    ]
+  },
+  "whiteListMode": {
+    "enable": false,
+    "whiteListIds": [
+      "61581197276223",
+      "100003180900133"
+    ]
+  },
+  "whiteListModeThread": {
+    "enable": false,
+    "whiteListThreadIds": [
+      ""
+    ]
+  },
+  "database": {
+    "type": "sqlite",
+    "uriMongodb": "",
+    "autoSyncWhenStart": false,
+    "autoRefreshThreadInfoFirstTime": true
+  },
+  "timeZone": "Asia/Dhaka",
+  "dashBoard": {
+    "enable": true,
+    "expireVerifyCode": 300000,
+    "port": 3001
+  },
+  "serverUptime": {
+    "enable": false,
+    "port": 3001,
+    "socket": {
+      "enable": true,
+      "channelName": "uptime",
+      "verifyToken": "8126831f37f9cb8d6ba35489bac1ac619b114178e9617613ae8277ed4328fa3f"
+    }
+  },
+  "spamProtection": {
+    "commandThreshold": 8,
+    "timeWindow": 10,
+    "banDuration": 24
+  },
+  "autoRestart": {
+    "time": null
+  },
+  "autoUptime": {
+    "enable": false,
+    "timeInterval": 180,
+    "url": ""
+  },
+  "autoLoadScripts": {
+    "enable": false,
+    "ignoreCmds": "",
+    "ignoreEvents": ""
+  },
+  "autoRefreshFbstate": true,
+  "autoReloginWhenChangeAccount": false,
+  "autoRestartWhenListenMqttError": false,
+  "restartListenMqtt": {
+    "enable": true,
+    "timeRestart": 3600000,
+    "delayAfterStopListening": 2000,
+    "logNoti": true
+  },
+  "notiWhenListenMqttError": {
+    "telegram": {
+      "enable": false,
+      "botToken": "",
+      "chatId": ""
+    },
+    "discordHook": {
+      "enable": false,
+      "webhookUrl": ""
+    }
+  },
+  "hideNotiMessage": {
+    "commandNotFound": false,
+    "adminOnly": false,
+    "threadBanned": false,
+    "userBanned": false,
+    "needRoleToUseCmd": false,
+    "needRoleToUseCmdOnReply": false,
+    "needRoleToUseCmdOnReaction": false
+  },
+  "logEvents": {
+    "disableAll": false,
+    "message": true,
+    "message_reaction": true,
+    "message_unsend": true,
+    "message_reply": true,
+    "event": true,
+    "read_receipt": false,
+    "typ": false,
+    "presence": false
+  },
+  "optionsFca": {
+    "forceLogin": true,
+    "listenEvents": true,
+    "updatePresence": true,
+    "listenTyping": true,
+    "logLevel": "error",
+    "selfListen": false,
+    "selfListenEvent": true,
+    "autoMarkDelivery": false,
+    "autoReconnect": false,
+    "fca": "sagor-nx-fca"
+  },
+  "noPrefixMode": true
+}
