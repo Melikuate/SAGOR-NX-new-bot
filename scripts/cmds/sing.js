@@ -1,77 +1,83 @@
-const a = require("axios");
-const b = require("fs");
-const c = require("path");
-const d = require("yt-search");
-
-const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
+const axios = require("axios");
+const yts = require("yt-search");
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "sing",
-    aliases: ["music", "song"],
-    version: "0.0.1",
-    author: "ArYAN",
+    aliases: ["song", "music"],
+    version: "1.2",
+    author: "SaGor",
     countDown: 5,
     role: 0,
-    shortDescription: "Sing tomake chai",
-    longDescription: "Search and download music from YouTube",
-    category: "MUSIC",
-    guide: "/music <song name or YouTube URL>"
+    shortDescription: "Download song",
+    category: "media",
+    guide: "{pn} <song name>"
   },
 
-  onStart: async function ({ api: e, event: f, args: g }) {
-    if (!g.length) return e.sendMessage("❌ Provide a song name or YouTube URL.", f.threadID, f.messageID);
-
-    let baseApi;
-    const i = await e.sendMessage("🎵 Please wait...", f.threadID, null, f.messageID);
-    
+  onStart: async function ({ api, event, args }) {
     try {
-      const configRes = await a.get(nix);
-      baseApi = configRes.data && configRes.data.api;
-      if (!baseApi) throw new Error("Configuration Error: Missing API in GitHub JSON.");
-    } catch (error) {
-      e.unsendMessage(i.messageID);
-      return e.sendMessage("❌ Failed to fetch API configuration from GitHub.", f.threadID, f.messageID);
-    }
+      const react = (e) => api.setMessageReaction(e, event.messageID, event.threadID, () => {}, true);
 
-    let h = g.join(" ");
+      const query = args.join(" ");
+      if (!query) return react("⚠️");
 
-    try {
-      let j;
-      if (h.startsWith("http")) {
-        j = h;
-      } else {
-        const k = await d(h);
-        if (!k || !k.videos.length) throw new Error("No results found.");
-        j = k.videos[0].url;
-      }
+      react("🔍");
 
-      const l = `${baseApi}/play?url=${encodeURIComponent(j)}`;
-      const m = await a.get(l);
-      const n = m.data;
+      const search = await yts(query);
+      const video = search.videos[0];
 
-      if (!n.status || !n.downloadUrl) throw new Error("API failed to return download URL.");
+      if (!video) return react("❌");
 
-      const o = `${n.title}.mp3`.replace(/[\\/:"*?<>|]/g, "");
-      const p = c.join(__dirname, o);
+      react("⏳");
 
-      const q = await a.get(n.downloadUrl, { responseType: "arraybuffer" });
-      b.writeFileSync(p, q.data);
+      const json = await axios.get("https://raw.githubusercontent.com/SAGOR-OFFICIAL-09/api/refs/heads/main/ApiUrl.json");
+      const baseApi = json.data?.apis?.ytdl;
 
-      await e.sendMessage(
-        { attachment: b.createReadStream(p), body: `🎵 𝗠𝗨𝗦𝗜𝗖\n━━━━━━━━━━━━━━━\n\n${n.title}` },
-        f.threadID,
-        () => {
-          b.unlinkSync(p);
-          e.unsendMessage(i.messageID);
+      if (!baseApi) return react("❌");
+
+      const apiUrl = `${baseApi}/api/ytmp3?url=${encodeURIComponent(video.url)}`;
+
+      const res = await axios.get(apiUrl);
+      const data = res.data;
+
+      const audioUrl =
+        data.downloadUrl ||
+        data.url ||
+        data.data?.downloadUrl;
+
+      if (!audioUrl) return react("❌");
+
+      const stream = await axios({
+        url: audioUrl,
+        method: "GET",
+        responseType: "stream"
+      });
+
+      const filePath = path.join(__dirname, "cache", `${Date.now()}.mp3`);
+
+      await new Promise((resolve, reject) => {
+        const writer = fs.createWriteStream(filePath);
+        stream.data.pipe(writer);
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      await api.sendMessage(
+        {
+          body: `🎧 ${video.title}\n⏱ ${video.timestamp}`,
+          attachment: fs.createReadStream(filePath)
         },
-        f.messageID
+        event.threadID
       );
 
-    } catch (r) {
-      console.error(r);
-      e.sendMessage(`❌ Failed to download song: ${r.message}`, f.threadID, f.messageID);
-      e.unsendMessage(i.messageID);
+      fs.unlinkSync(filePath);
+
+      react("✅");
+
+    } catch {
+      api.setMessageReaction("❌", event.messageID, event.threadID, () => {}, true);
     }
   }
 };
