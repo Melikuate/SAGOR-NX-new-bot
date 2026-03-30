@@ -5,7 +5,6 @@ const memory = new Map();
 function detectLang(text) {
   const hasBn = /[\u0980-\u09FF]/.test(text);
   const hasEn = /[a-zA-Z]/.test(text);
-
   if (hasBn && hasEn) return "mix";
   if (hasBn) return "bn";
   return "en";
@@ -14,20 +13,14 @@ function detectLang(text) {
 function buildPrompt(history, lang) {
   let system;
 
-  if (lang === "bn") {
-    system = "You are a helpful AI. Always reply in Bangla.";
-  } else if (lang === "mix") {
-    system = "You are a helpful AI. Reply in Banglish (mix of Bangla and English).";
-  } else {
-    system = "You are a helpful AI. Always reply in English.";
-  }
+  if (lang === "bn") system = "Reply short in Bangla.";
+  else if (lang === "mix") system = "Reply short in Banglish.";
+  else system = "Reply short in English.";
 
   return (
     system +
     "\n\n" +
-    history
-      .map(x => `${x.role === "user" ? "User" : "Assistant"}: ${x.content}`)
-      .join("\n") +
+    history.map(x => `${x.role === "user" ? "User" : "Assistant"}: ${x.content}`).join("\n") +
     "\nAssistant:"
   );
 }
@@ -44,124 +37,86 @@ function cleanReply(text) {
     .trim();
 }
 
+async function fetchAI(prompt) {
+  try {
+    const res = await axios.get("https://ai-api-sagor.vercel.app/sagor", {
+      params: { key: "sagor", prompt },
+      timeout: 15000
+    });
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   config: {
     name: "ai",
-    aliases: [],
-    version: "8.0",
+    version: "final",
     author: "SAGOR",
     role: 0,
     category: "ai"
   },
 
   onStart: async function ({ api, event, args }) {
-    try {
-      const user = event.senderID;
-      const text = args.join(" ");
-      if (!text)
-        return api.sendMessage("❌ | Enter text", event.threadID, event.messageID);
+    const user = event.senderID;
+    const text = args.join(" ");
+    if (!text) return api.sendMessage("❌ | Enter text", event.threadID);
 
-      const lang = detectLang(text);
+    const lang = detectLang(text);
 
-      let history = memory.get(user) || [];
+    let history = memory.get(user) || [];
 
-      history.push({ role: "user", content: text });
-      if (history.length > 6) history.shift();
+    history.push({ role: "user", content: text });
+    if (history.length > 3) history.shift();
 
-      const prompt = buildPrompt(history, lang);
+    const data = await fetchAI(buildPrompt(history, lang));
+    if (!data) return api.sendMessage("❌ | API Down", event.threadID);
 
-      const res = await axios.get(
-        `https://ai-api-sagor.vercel.app/sagor?key=sagor&prompt=${encodeURIComponent(prompt)}`
-      );
+    let reply = cleanReply(
+      data.reply || data.data?.response || data.message || "⚠️ AI busy"
+    );
 
-      let reply =
-        res?.data?.reply ||
-        res?.data?.data?.response ||
-        res?.data?.message ||
-        "⚠️ AI busy";
+    history.push({ role: "ai", content: reply });
+    memory.set(user, history);
 
-      reply = cleanReply(reply);
-
-      if (!reply || reply.length < 2) {
-        if (lang === "bn") reply = "🤖 আবার চেষ্টা করুন";
-        else if (lang === "mix") reply = "🤖 abar try koro";
-        else reply = "🤖 Try again";
-      }
-
-      history.push({ role: "ai", content: reply });
-      memory.set(user, history);
-
-      return api.sendMessage(
-        `${reply}`,
-        event.threadID,
-        (err, info) => {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName: "ai",
-            author: user
-          });
-        },
-        event.messageID
-      );
-
-    } catch {
-      api.sendMessage("❌ | API Error", event.threadID, event.messageID);
-    }
+    api.sendMessage(
+      reply,
+      event.threadID,
+      null,
+      event.messageID
+    );
   },
 
-  onReply: async function ({ api, event, Reply }) {
-    try {
-      if (event.senderID !== Reply.author) return;
+  onChat: async function ({ api, event }) {
+    const text = event.body;
+    if (!text) return;
 
-      const user = event.senderID;
-      const text = event.body;
-      if (!text) return;
+    if (!event.messageReply) return;
 
-      const lang = detectLang(text);
+    const user = event.senderID;
+    const lang = detectLang(text);
 
-      let history = memory.get(user) || [];
+    let history = memory.get(user) || [];
 
-      if (text.length < 2) history = [];
+    history.push({ role: "user", content: text });
+    if (history.length > 3) history.shift();
 
-      history.push({ role: "user", content: text });
-      if (history.length > 6) history.shift();
+    const data = await fetchAI(buildPrompt(history, lang));
+    if (!data) return;
 
-      const prompt = buildPrompt(history, lang);
+    let reply = cleanReply(
+      data.reply || data.data?.response || data.message || "⚠️ AI busy"
+    );
 
-      const res = await axios.get(
-        `https://ai-api-sagor.vercel.app/sagor?key=sagor&prompt=${encodeURIComponent(prompt)}`
-      );
+    history.push({ role: "ai", content: reply });
+    memory.set(user, history);
 
-      let reply =
-        res?.data?.reply ||
-        res?.data?.data?.response ||
-        res?.data?.message ||
-        "⚠️ AI busy";
-
-      reply = cleanReply(reply);
-
-      if (!reply || reply.length < 2) {
-        if (lang === "bn") reply = "🤖 আবার চেষ্টা করুন";
-        else if (lang === "mix") reply = "🤖 abar try koro";
-        else reply = "🤖 Try again";
-      }
-
-      history.push({ role: "ai", content: reply });
-      memory.set(user, history);
-
-      return api.sendMessage(
-        `${reply}`,
-        event.threadID,
-        (err, info) => {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName: "ai",
-            author: user
-          });
-        },
-        event.messageID
-      );
-
-    } catch {
-      api.sendMessage("❌ | Chat error", event.threadID, event.messageID);
-    }
+    api.sendMessage(
+      reply,
+      event.threadID,
+      null,
+      event.messageID
+    );
   }
 };
