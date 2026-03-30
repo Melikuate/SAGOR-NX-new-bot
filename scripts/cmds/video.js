@@ -1,24 +1,23 @@
 const axios = require("axios");
 const yts = require("yt-search");
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 
 module.exports = {
   config: {
     name: "video",
-    version: "23.0",
-    author: "SAGOR",
+    version: "32.0",
+    author: "SaGor",
     countDown: 5,
     role: 0,
-    shortDescription: "Video with all thumbnails",
+    shortDescription: "Video download",
     category: "media",
     guide: "{pn} <search text>"
   },
 
   onStart: async function ({ api, event, args }) {
     try {
-      const react = (emoji) =>
-        api.setMessageReaction(emoji, event.messageID, event.threadID, () => {}, true);
+      const react = (e) => api.setMessageReaction(e, event.messageID, event.threadID, () => {}, true);
 
       const query = args.join(" ");
       if (!query) return react("⚠️");
@@ -28,7 +27,9 @@ module.exports = {
       const search = await yts(query);
       const list = search.videos.slice(0, 10);
 
-      let msg = "🎬 VIDEO LIST (Top 10)\n\n";
+      if (!list.length) return react("❌");
+
+      let msg = "🎬 VIDEO LIST\n\n";
 
       list.forEach((v, i) => {
         msg += `${i + 1}. ${v.title}\n⏱ ${v.timestamp}\n\n`;
@@ -36,23 +37,19 @@ module.exports = {
 
       msg += "👉 Reply 1-10";
 
-      // 🔥 Download all thumbnails
-      const attachments = [];
+      const thumbs = await Promise.all(
+        list.map(async (v) => {
+          try {
+            const r = await axios({ url: v.thumbnail, method: "GET", responseType: "stream" });
+            return r.data;
+          } catch {
+            return null;
+          }
+        })
+      );
 
-      for (let i = 0; i < list.length; i++) {
-        const res = await axios({
-          url: list[i].thumbnail,
-          method: "GET",
-          responseType: "stream"
-        });
-        attachments.push(res.data);
-      }
-
-      return api.sendMessage(
-        {
-          body: msg,
-          attachment: attachments
-        },
+      api.sendMessage(
+        { body: msg, attachment: thumbs.filter(Boolean) },
         event.threadID,
         (err, info) => {
           global.GoatBot.onReply.set(info.messageID, {
@@ -64,20 +61,19 @@ module.exports = {
         }
       );
 
-    } catch (e) {
+    } catch {
       api.setMessageReaction("❌", event.messageID, event.threadID, () => {}, true);
     }
   },
 
   onReply: async function ({ api, event, Reply }) {
     try {
-      const react = (emoji) =>
-        api.setMessageReaction(emoji, event.messageID, event.threadID, () => {}, true);
+      const react = (e) => api.setMessageReaction(e, event.messageID, event.threadID, () => {}, true);
 
       if (event.senderID !== Reply.author) return;
 
       const index = parseInt(event.body);
-      if (isNaN(index) || index < 1 || index > 10) return react("⚠️");
+      if (isNaN(index) || index < 1 || index > Reply.list.length) return react("⚠️");
 
       const video = Reply.list[index - 1];
 
@@ -86,43 +82,62 @@ module.exports = {
       react("⏳");
 
       const json = await axios.get("https://raw.githubusercontent.com/SAGOR-OFFICIAL-09/api/refs/heads/main/ApiUrl.json");
-      const baseApi = json.data.apis.video;
+      const baseApi = json.data?.apis?.ytdl;
 
-      const apiUrl = `${baseApi}/sagor?url=${encodeURIComponent(video.url)}&apikey=sagor&q=360`;
+      if (!baseApi) return react("❌");
 
-      const res = await axios.get(apiUrl);
-      const data = res.data.data;
+      const qualities = ["480p", "360p", "240p"];
 
-      if (!data || !data.download) return react("❌");
+      let downloadUrl = null;
+      let usedQuality = "Unknown";
+      let data = {};
 
-      const response = await axios({
-        url: data.download,
+      for (let q of qualities) {
+        try {
+          const apiUrl = `${baseApi}/api/ytmp4?url=${encodeURIComponent(video.url)}&quality=${q}`;
+          const res = await axios.get(apiUrl, { timeout: 20000 });
+          data = res.data;
+
+          let url = data.downloadUrl || data.quality_list?.[q]?.url;
+
+          if (!url && data.quality_list) {
+            const firstKey = Object.keys(data.quality_list)[0];
+            url = data.quality_list[firstKey]?.url;
+            usedQuality = firstKey;
+          } else {
+            usedQuality = q;
+          }
+
+          if (!url) continue;
+
+          downloadUrl = url;
+          break;
+
+        } catch {}
+      }
+
+      if (!downloadUrl) {
+        return api.sendMessage("❌ API failed", event.threadID);
+      }
+
+      const stream = await axios({
+        url: downloadUrl,
         method: "GET",
         responseType: "stream"
       });
 
-      const size = parseInt(response.headers["content-length"] || 0);
-
-      if (size > 25 * 1024 * 1024) {
-        react("⚠️");
-        return api.sendMessage(`⚠️ Too large\n🔗 ${data.download}`, event.threadID);
-      }
-
-      const cacheDir = path.join(__dirname, "cache");
-      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-
-      const filePath = path.join(cacheDir, `${Date.now()}.mp4`);
+      const filePath = path.join(__dirname, "cache", `${Date.now()}.mp4`);
 
       await new Promise((resolve, reject) => {
         const writer = fs.createWriteStream(filePath);
-        response.data.pipe(writer);
+        stream.data.pipe(writer);
         writer.on("finish", resolve);
         writer.on("error", reject);
       });
 
       await api.sendMessage(
         {
-          body: `🎬 ${video.title}\n⏱ ${video.timestamp}\n📺 360p`,
+          body: `🎬 ${data.title || video.title}\n📺 ${data.channel || "Unknown"}\n📺 ${usedQuality}`,
           attachment: fs.createReadStream(filePath)
         },
         event.threadID
@@ -132,7 +147,7 @@ module.exports = {
 
       react("✅");
 
-    } catch (e) {
+    } catch {
       api.setMessageReaction("❌", event.messageID, event.threadID, () => {}, true);
     }
   }
