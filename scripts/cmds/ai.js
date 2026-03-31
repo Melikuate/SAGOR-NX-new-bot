@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const memory = new Map();
+const replyMap = new Map();
 
 function detectLang(text) {
   const hasBn = /[\u0980-\u09FF]/.test(text);
@@ -64,7 +65,6 @@ module.exports = {
     if (!text) return api.sendMessage("❌ | Enter text", event.threadID);
 
     const lang = detectLang(text);
-
     let history = memory.get(user) || [];
 
     history.push({ role: "user", content: text });
@@ -83,7 +83,9 @@ module.exports = {
     api.sendMessage(
       reply,
       event.threadID,
-      null,
+      (err, info) => {
+        replyMap.set(info.messageID, true);
+      },
       event.messageID
     );
   },
@@ -92,7 +94,9 @@ module.exports = {
     const text = event.body;
     if (!text) return;
 
-    if (!event.messageReply) return;
+    const replyID = event.messageReply?.messageID;
+    if (!replyID) return;
+    if (!replyMap.has(replyID)) return;
 
     const user = event.senderID;
     const lang = detectLang(text);
@@ -115,7 +119,9 @@ module.exports = {
     api.sendMessage(
       reply,
       event.threadID,
-      null,
+      (err, info) => {
+        replyMap.set(info.messageID, true);
+      },
       event.messageID
     );
   }
