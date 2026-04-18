@@ -52,7 +52,7 @@ async function fetchAI(prompt) {
 
 module.exports = {
   config: {
-    name: "ai",
+    name: "tesla",
     version: "final",
     author: "SAGOR",
     role: 0,
